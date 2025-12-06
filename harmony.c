@@ -22,10 +22,21 @@ struct harmony_output {
     struct wlr_output *wlr_output; 
     struct harmony_server *server; 
     struct timespec last_frame;
+    struct wl_listener frame;
     struct wl_list link;
 
     struct wl_listener destroy;
 };
+
+static void output_destroy_notify(struct wl_listener *listener, void *data) 
+{
+    struct harmony_output *output = wl_container_of(listener, output, destroy);
+    wl_list_remove(&output->link);
+    wl_list_remove(&output->destroy.link);
+    wl_list_remove(&output->frame.link);
+
+    free(output);
+}
 
 static void new_output_notify(struct wl_listener *listener, void *data)
 {
@@ -45,6 +56,9 @@ static void new_output_notify(struct wl_listener *listener, void *data)
     clock_gettime(CLOCK_MONOTONIC, &output->last_frame);
     output->server = server; 
     wl_list_insert(&server->outputs, &output->link);
+
+    output->destroy.notify = output_destroy_notify;
+    wl_signal_add(&wlr_output->events.destroy, &output->destroy);
 }
 
 int main(void) 
